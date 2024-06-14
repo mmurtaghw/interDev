@@ -2,6 +2,7 @@ import { filter } from "@chakra-ui/react";
 import { Category } from "./useCategories";
 import useData from "./useData";
 import qs from "qs";
+import { AxiosRequestConfig } from "axios";
 
 interface FetchGamesResponse {
   Abstract: string;
@@ -47,15 +48,16 @@ const useTrials = (filters: TrialFilter) => {
   const { trialIds, ...otherFilters } = filters;
   const effectiveFilters = { ...otherFilters, limit: filters.limit || 500 };
 
-  const requestConfig = {
-    params: effectiveFilters,
+  // Use AxiosRequestConfig for proper typing
+  const requestConfig: AxiosRequestConfig = {
+    params: { ...effectiveFilters },
     paramsSerializer: (params) =>
       qs.stringify(params, { arrayFormat: "repeat" }),
   };
 
-  //Add trial IDs to the query parameters if they exist
+  // Add trialIds to the query parameters if they exist
   if (trialIds && trialIds.length > 0) {
-    requestConfig.params.trialIds = trialIds;
+    requestConfig.params = { ...requestConfig.params, trialIds };
   }
 
   console.log(requestConfig.params.trialIds);
