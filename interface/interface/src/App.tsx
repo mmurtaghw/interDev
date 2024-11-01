@@ -1,54 +1,109 @@
-import { Button, Grid, GridItem, Show, Text, VStack } from "@chakra-ui/react";
+// App.tsx
+
+import React, { useState, useCallback } from "react";
+import { Grid, GridItem, VStack, Show } from "@chakra-ui/react";
+import { Routes, Route, useParams, useNavigate } from "react-router-dom";
 import NavBar from "./components/NavBar";
-import GameGrid from "./components/GameGrid";
-import { useState, useCallback } from "react";
-import { Category } from "./hooks/useCategories";
-import { Trial, TrialFilter } from "./hooks/useTrials";
-import { BrowserRouter, Link, Route, Routes } from "react-router-dom";
-import TrialDetail from "./components/TrialDetail";
 import NavSideBar from "./components/NavSideBar";
+import GameGrid from "./components/GameGrid";
+import TrialDetail from "./components/TrialDetail";
 import TrialSubmissionForm from "./components/TrialSubmissionForm";
-import Collection from "./components/Collection";
-import AddCollectionButton from "./components/AddCollectionButton";
+import CollectionList from "./components/CollectionList";
+import CollectionView, {
+  Props as CollectionViewProps,
+} from "./components/CollectionView";
+import { Trial, TrialFilter } from "./types/trialTypes";
+import { CollectionType } from "./types/collectionTypes";
 
 function App() {
   const [typeFilter, setSelectedFilter] = useState<TrialFilter>(
     {} as TrialFilter
   );
   const [selectedTrial, setSelectedTrial] = useState<Trial>({} as Trial);
-  const [trialCollection, setTrialCollection] = useState<string[]>([]);
-  const isTrialInCollection = (trialId: string) => {
-    return trialCollection.includes(trialId);
-  };
+
+  // State to manage multiple collections
+  const [collections, setCollections] = useState<CollectionType[]>([]);
+
   const resetFilter = useCallback(() => {
     setSelectedFilter({} as TrialFilter); // Reset the filter to initial state
   }, []);
 
-  const addToCollection = (trialId: string) => {
-    setTrialCollection((prevCollection) => {
-      // Check if the trialId is already in the collection
-      if (!prevCollection.includes(trialId)) {
-        return [...prevCollection, trialId];
+  // Function to add a trial to a collection
+  const addToCollection = (trialId: string, collectionName: string) => {
+    setCollections((prevCollections) => {
+      const collectionIndex = prevCollections.findIndex(
+        (col) => col.name === collectionName
+      );
+
+      if (collectionIndex !== -1) {
+        const collection = prevCollections[collectionIndex];
+        if (!collection.trialIds.includes(trialId)) {
+          const updatedCollection = {
+            ...collection,
+            trialIds: [...collection.trialIds, trialId],
+          };
+          const newCollections = [...prevCollections];
+          newCollections[collectionIndex] = updatedCollection;
+          return newCollections;
+        }
+      } else {
+        // If collection doesn't exist, create it and add the trial
+        return [
+          ...prevCollections,
+          { name: collectionName, trialIds: [trialId] },
+        ];
       }
-      return prevCollection;
-    });
-  };
-  const removeFromCollection = (trialId: string) => {
-    setTrialCollection((prevCollection) => {
-      // Remove the trialId from the collection
-      return prevCollection.filter((id) => id !== trialId);
+      return prevCollections;
     });
   };
 
-  //This should be moved somewhere
-  const downloadCollection = async () => {
-    if (trialCollection.length === 0) {
+  // Function to remove a trial from a collection
+  const removeFromCollection = (trialId: string, collectionName: string) => {
+    setCollections((prevCollections) => {
+      const collectionIndex = prevCollections.findIndex(
+        (col) => col.name === collectionName
+      );
+
+      if (collectionIndex !== -1) {
+        const collection = prevCollections[collectionIndex];
+        const updatedTrialIds = collection.trialIds.filter(
+          (id) => id !== trialId
+        );
+        const updatedCollection = { ...collection, trialIds: updatedTrialIds };
+        const newCollections = [...prevCollections];
+        newCollections[collectionIndex] = updatedCollection;
+        return newCollections;
+      }
+      return prevCollections;
+    });
+  };
+
+  // Function to check if a trial is in a collection
+  const isTrialInCollection = (trialId: string, collectionName: string) => {
+    const collection = collections.find((col) => col.name === collectionName);
+    return collection ? collection.trialIds.includes(trialId) : false;
+  };
+
+  // Function to create a new collection
+  const createCollection = (name: string) => {
+    setCollections((prevCollections) => {
+      if (!prevCollections.some((col) => col.name === name)) {
+        return [...prevCollections, { name, trialIds: [] }];
+      }
+      return prevCollections;
+    });
+  };
+
+  // Function to download a collection
+  const downloadCollection = async (collectionName: string) => {
+    const collection = collections.find((col) => col.name === collectionName);
+    if (!collection || collection.trialIds.length === 0) {
       alert("No trials in the collection to download.");
       return;
     }
 
     const baseUrl = "http://127.0.0.1:5000/download_knowledge_graph_data";
-    const query = `trialIds=${trialCollection.join("&trialIds=")}`;
+    const query = `trialIds=${collection.trialIds.join("&trialIds=")}`;
 
     try {
       const response = await fetch(`${baseUrl}?${query}`);
@@ -60,22 +115,22 @@ function App() {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
-      link.setAttribute("download", "collection.ttl"); // Define the filename for download
+      link.setAttribute("download", `${collectionName}.ttl`); // Use collection name as filename
       document.body.appendChild(link);
       link.click();
 
-      // Check if the link has a parent node before removing it
       if (link.parentNode) {
         link.parentNode.removeChild(link);
       }
 
-      // Clean up the blob URL
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       console.error("Failed to download the collection:", error);
       alert("Failed to download the collection. Please try again.");
     }
   };
+
+  const navigate = useNavigate();
 
   return (
     <Grid
@@ -88,107 +143,98 @@ function App() {
         lg: "200px 1fr",
       }}
     >
+      {/* Navigation Bar */}
       <GridItem area="nav">
-        {" "}
-        <NavBar resetSelectedFilter={resetFilter}></NavBar>
+        <NavBar resetSelectedFilter={resetFilter} />
       </GridItem>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <NavSideBar
-              typeFilter={typeFilter}
-              setSelectedFilter={setSelectedFilter}
-            ></NavSideBar>
-          }
-        />
-        <Route
-          path="/collection"
-          element={
-            <VStack spacing={4} align="stretch">
-              <Button
-                colorScheme="green"
-                size="md"
-                marginLeft={4}
-                marginRight={4}
-                onClick={downloadCollection}
-              >
-                Download Collection
-              </Button>
 
-              <NavSideBar
-                typeFilter={typeFilter}
-                setSelectedFilter={setSelectedFilter}
-              />
-            </VStack>
-          }
-        />
-        <Route
-          path="/trial/:projectName"
-          element={
-            <VStack spacing={4} align="stretch">
-              <AddCollectionButton
-                trial={selectedTrial}
-                onAddTrialToCollection={addToCollection}
-                onRemoveTrialFromCollection={removeFromCollection}
-                isInCollection={isTrialInCollection}
-                buttonProps={{
-                  size: "md",
-                  marginLeft: 4,
-                  marginRight: 4,
-                  whiteSpace: "normal",
-                }}
-              />
-            </VStack>
-          }
-        />
-      </Routes>
+      {/* Sidebar */}
+      <Show above="lg">
+        <GridItem area="aside">
+          <NavSideBar
+            typeFilter={typeFilter}
+            setSelectedFilter={setSelectedFilter}
+          />
+        </GridItem>
+      </Show>
+
+      {/* Main Content */}
       <GridItem area="main">
         <Routes>
+          {/* Main game grid */}
           <Route
             path="/"
             element={
               <GameGrid
                 trialFilter={typeFilter}
                 onSelectTrial={setSelectedTrial}
-                isInCollection={isTrialInCollection}
                 onAddTrialToCollection={addToCollection}
                 onRemoveTrialFromCollection={removeFromCollection}
+                isTrialInCollection={isTrialInCollection}
+                collections={collections}
+                onCreateCollection={createCollection} // Added this to GameGrid
               />
             }
           />
-          {/* Dynamic route for trials */}
+
+          {/* Trial detail route */}
           <Route
             path="/trial/:projectName"
-            element={<TrialDetail trial={selectedTrial} />}
-          />
-          <Route
-            path="/submission"
             element={
-              <>
-                <TrialSubmissionForm></TrialSubmissionForm>
-              </>
-            } // A component to display trial details
+              <TrialDetail
+                trial={selectedTrial}
+                collections={collections}
+                onAddTrialToCollection={addToCollection}
+                onCreateCollection={createCollection}
+              />
+            }
           />
+
+          {/* Submission form */}
+          <Route path="/submission" element={<TrialSubmissionForm />} />
+
+          {/* Collection list route */}
           <Route
-            path="/collection"
+            path="/collections"
             element={
-              <>
-                <Collection
-                  onSelectTrial={setSelectedTrial}
-                  trialFilter={typeFilter}
-                  trialIds={trialCollection}
-                  isInCollection={isTrialInCollection}
-                  onAddTrialToCollection={addToCollection}
-                  onRemoveTrialFromCollection={removeFromCollection}
-                ></Collection>
-              </>
-            } // A component to display trial details
+              <CollectionList
+                collections={collections}
+                onCreateCollection={createCollection}
+                onSelectCollection={(name) => {
+                  // Navigate to the specific collection
+                  navigate(`/collection/${encodeURIComponent(name)}`);
+                }}
+              />
+            }
+          />
+
+          {/* Collection route with collectionName parameter */}
+          <Route
+            path="/collection/:collectionName"
+            element={
+              <CollectionRouteComponent
+                collections={collections}
+                onSelectTrial={setSelectedTrial}
+                onAddTrialToCollection={addToCollection}
+                onRemoveTrialFromCollection={removeFromCollection}
+                isTrialInCollection={isTrialInCollection}
+                trialFilter={typeFilter}
+                downloadCollection={downloadCollection}
+              />
+            }
           />
         </Routes>
       </GridItem>
     </Grid>
   );
+}
+
+// Helper component to use useParams inside Routes
+function CollectionRouteComponent(
+  props: Omit<CollectionViewProps, "collectionName">
+) {
+  const { collectionName } = useParams<{ collectionName: string }>();
+  return <CollectionView collectionName={collectionName!} {...props} />;
 }
 
 export default App;

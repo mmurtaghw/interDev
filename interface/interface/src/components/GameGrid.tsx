@@ -1,73 +1,85 @@
-import { SimpleGrid, Text, Box } from "@chakra-ui/react";
-import useTrials, { Trial, TrialFilter } from "../hooks/useTrials";
-import GameCard from "./GameCard";
-import GameCardSkeleton from "./GameCardSkeleton";
-import GameCardContainer from "./GameCardContainer";
-import React, { useMemo } from "react";
+// src/components/GameGrid.tsx
 
-interface Props {
+import React from "react";
+import { Spinner, Text, VStack, SimpleGrid } from "@chakra-ui/react";
+import useTrials from "../hooks/useTrials";
+import { Trial, TrialFilter } from "../types/trialTypes";
+import TrialCard from "./GameCard"; // Ensure this component exists and is correctly implemented
+import { CollectionType } from "../types/collectionTypes";
+
+interface GameGridProps {
   trialFilter: TrialFilter;
-  trialIds?: string[]; // Optional array of trial IDs
   onSelectTrial: (selectedTrial: Trial) => void;
-  onAddTrialToCollection: (selectedTrial: string) => void;
-  onRemoveTrialFromCollection: (selectedTrial: string) => void;
-  isInCollection: (trialId: string) => boolean;
+  onAddTrialToCollection: (trialId: string, collectionName: string) => void;
+  onRemoveTrialFromCollection: (
+    trialId: string,
+    collectionName: string
+  ) => void;
+  isTrialInCollection: (trialId: string, collectionName: string) => boolean;
+  collections: CollectionType[];
 }
 
-const GameGrid = ({
+const GameGrid: React.FC<GameGridProps> = ({
   trialFilter,
-  trialIds,
   onSelectTrial,
   onAddTrialToCollection,
-  isInCollection,
   onRemoveTrialFromCollection,
-}: Props) => {
-  // Include trialIds in the filter if they are provided
-  const effectiveFilter = useMemo(() => {
-    const trials =
-      trialIds && trialIds.length > 0
-        ? { ...trialFilter, trialIds }
-        : trialFilter;
-    return trials;
-  }, [trialFilter, trialIds]);
+  isTrialInCollection,
+  collections,
+}) => {
+  const { data: trials, isLoading, error } = useTrials(trialFilter);
 
-  const { data, error, isLoading } = useTrials(effectiveFilter);
-  const skeletons = [1, 2, 3, 4, 5, 6];
+  console.log("Received trials in GameGrid:", trials);
 
-  // Check if trialIds is an empty array
-  if (trialIds && trialIds.length === 0) {
-    return <Box padding={10}>No trials to display.</Box>;
+  // Handle loading state
+  if (isLoading) {
+    return (
+      <VStack spacing={4} align="center" justify="center" height="100%">
+        <Spinner size="xl" />
+        <Text>Loading trials...</Text>
+      </VStack>
+    );
   }
 
-  return (
-    <>
-      {error && <Text>{error}</Text>}
-      <SimpleGrid
-        columns={{ sm: 1, md: 2, lg: 3, xl: 4 }}
-        padding={10}
-        spacing={3}
-      >
-        {isLoading &&
-          skeletons.map((skeleton) => (
-            <GameCardContainer key={skeleton}>
-              <GameCardSkeleton />
-            </GameCardContainer>
-          ))}
+  // Handle error state
+  if (error) {
+    return (
+      <VStack spacing={4} align="center" justify="center" height="100%">
+        <Text fontSize="lg" color="red.500">
+          Error: {error}
+        </Text>
+      </VStack>
+    );
+  }
 
-        {data &&
-          data.map((trial) => (
-            <GameCardContainer key={trial.id}>
-              <GameCard
-                game={trial}
-                onSelectTrial={onSelectTrial}
-                onAddTrialToCollection={onAddTrialToCollection}
-                isInCollection={isInCollection}
-                onRemoveTrialFromCollection={onRemoveTrialFromCollection}
-              />
-            </GameCardContainer>
-          ))}
+  // Handle case where trials data is empty
+  if (!trials || trials.length === 0) {
+    return (
+      <VStack spacing={4} align="center" justify="center" height="100%">
+        <Text>No trials found.</Text>
+      </VStack>
+    );
+  }
+
+  // Render the trials using the TrialCard component
+  return (
+    <VStack spacing={4} align="stretch" padding={4}>
+      <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }} spacing={6}>
+        {trials.map((trial) => (
+          <TrialCard
+            key={trial.id}
+            trial={trial}
+            onSelectTrial={onSelectTrial}
+            onAddToCollection={onAddTrialToCollection}
+            onRemoveFromCollection={onRemoveTrialFromCollection}
+            isInCollection={(collectionName) =>
+              isTrialInCollection(trial.id, collectionName)
+            }
+            collections={collections}
+          />
+        ))}
       </SimpleGrid>
-    </>
+    </VStack>
   );
 };
 

@@ -1,67 +1,38 @@
-import { filter } from "@chakra-ui/react";
-import { Category } from "./useCategories";
-import useData from "./useData";
+// src/hooks/useTrials.ts
+
+import axios, { AxiosRequestConfig } from "axios";
 import qs from "qs";
-import { AxiosRequestConfig } from "axios";
+import useData from "./useData";
+import { Trial, TrialFilter } from "../types/trialTypes";
 
-interface FetchGamesResponse {
-  Abstract: string;
-  CRS_Voluntary_DAC_Code: string;
-}
+const useTrials = (filters: TrialFilter, trialIds?: string[]) => {
+  const effectiveFilters = { ...filters };
 
-export interface Trial {
-  id: string;
-  Abstract: string;
-  Authors: string;
-  CRS_Voluntary_DAC_Code: string;
-  Equity_focus: string;
-  Ethics_Approval: string;
-  Evaluation_design: string;
-  Implementation_agency: string;
-  Keywords: string;
-  Language: string;
-  Mixed_method: string;
-  Open_Access: string;
-  Pre_Registration: string;
-  Primary_Dataset_Availability: string;
-  Project_name: string;
-  Sector: string;
-  State_Province_name: string;
-  Sub_sector: string;
-  Title: string;
-  Unit_of_observation: string;
-  countryCode: string;
-}
+  // Include trialIds in effectiveFilters if provided
+  if (trialIds && trialIds.length > 0) {
+    effectiveFilters.trialIds = trialIds;
+  }
 
-export interface TrialFilter {
-  limit: number;
-  trialIds?: string[];
-  Abstract?: string;
-  Authors?: string;
-  CRS_Voluntary_DAC_Code?: string;
-  Equity_focus?: string;
-  Sector?: string;
-  countryCode?: string;
-}
+  // Ensure a default limit if not specified
+  if (!effectiveFilters.limit) {
+    effectiveFilters.limit = 500;
+  }
 
-const useTrials = (filters: TrialFilter) => {
-  const { trialIds, ...otherFilters } = filters;
-  const effectiveFilters = { ...otherFilters, limit: filters.limit || 500 };
-
-  // Use AxiosRequestConfig for proper typing
   const requestConfig: AxiosRequestConfig = {
-    params: { ...effectiveFilters },
+    params: effectiveFilters,
     paramsSerializer: (params) =>
       qs.stringify(params, { arrayFormat: "repeat" }),
   };
 
-  // Add trialIds to the query parameters if they exist
-  if (trialIds && trialIds.length > 0) {
-    requestConfig.params = { ...requestConfig.params, trialIds };
-  }
+  // Fetch data using the custom hook
+  const { data, error, isLoading } = useData<{ results: Trial[] }>(
+    "/knowledge_graph_data",
+    requestConfig,
+    [JSON.stringify(effectiveFilters)]
+  );
 
-  console.log(requestConfig.params.trialIds);
-  return useData<Trial>("/knowledge_graph_data", requestConfig, [filters]);
+  // Return only the results array if data exists
+  return { data: data?.results, error, isLoading };
 };
 
 export default useTrials;

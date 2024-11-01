@@ -1,25 +1,39 @@
-import useData from "./useData";
+// useCategories.ts
+
+import { useState, useEffect } from "react";
+import axios from "axios";
 
 export interface Category {
-  name: string | undefined;
+  name: string;
+  // Other properties...
 }
 
-const useCategories = (categoryType: string = "Sector") => {
-  //Case where undefined
-  if (categoryType === undefined) {
-    categoryType = "Sector";
-  }
-  // Create a request configuration object with query parameters
-  const requestConfig = {
-    params: {
-      category: categoryType,
-    },
-  };
+interface UseCategoriesResult {
+  data: Category[] | undefined;
+  isLoading: boolean;
+  error: any;
+}
 
-  // Use the base URL for the endpoint
-  const url = "/categories";
+function useCategories(categoryTypeToFetch?: string): UseCategoriesResult {
+  const [data, setData] = useState<Category[] | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<any>(null);
 
-  return useData<Category>(url, requestConfig);
-};
+  useEffect(() => {
+    // Fetch categories based on categoryTypeToFetch
+    axios
+      .get<Category[]>(`/api/categories?type=${categoryTypeToFetch}`)
+      .then((response) => {
+        setData(response.data);
+        setIsLoading(false);
+      })
+      .catch((err) => {
+        setError(err);
+        setIsLoading(false);
+      });
+  }, [categoryTypeToFetch]);
+
+  return { data, isLoading, error };
+}
 
 export default useCategories;

@@ -1,48 +1,46 @@
-import { useState, useEffect } from "react";
-import apiClient from "../services/api-client-trials";
-import { CanceledError, AxiosRequestConfig } from "axios";
+// useData.ts
 
-interface FetchResponse<T> {
-  count: number;
-  results: T[];
+import { useState, useEffect } from "react";
+import axios, { AxiosRequestConfig } from "axios";
+import apiClient from "../services/api-client-trials";
+
+// Define the shape of the data returned by the API
+export interface UseDataResult<T> {
+  data: T | undefined;
+  error: string | null;
+  isLoading: boolean;
 }
 
-const useData = <T>(
-  endpoint: string,
-  requestConfig?: AxiosRequestConfig,
-  deps?: any[]
-) => {
-  const [data, setData] = useState<T[]>([]);
-  const [error, setError] = useState("");
-  const [isLoading, setLoading] = useState(false);
+function useData<T>(
+  url: string,
+  config: AxiosRequestConfig = {}, // Make config optional with a default empty object
+  deps: any[] = [] // Make deps optional with a default empty array
+): UseDataResult<T> {
+  const [data, setData] = useState<T | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  useEffect(
-    () => {
-      const controller = new AbortController();
-      setLoading(true);
+  useEffect(() => {
+    // Function to fetch data
+    const fetchData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const response = await apiClient.get<T>(url, config);
+        setData(response.data);
+      } catch (err: any) {
+        console.error("API Error:", err);
+        setError(err.message || "An unexpected error occurred.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-      apiClient
-        .get<FetchResponse<T>>(endpoint, {
-          signal: controller.signal,
-          ...requestConfig,
-        })
-        .then((res) => {
-          console.log(requestConfig);
-          setData(res.data.results);
-          setLoading(false);
-        })
-        .catch((err) => {
-          if (err instanceof CanceledError) return;
-          setError(err.message);
-          setLoading(false);
-        });
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps); // Trigger the effect when dependencies change
 
-      return () => controller.abort();
-    },
-    deps ? [...deps] : []
-  ); // Dependency array remains empty for fetching on component mount
-  console.log(data);
   return { data, error, isLoading };
-};
+}
 
 export default useData;

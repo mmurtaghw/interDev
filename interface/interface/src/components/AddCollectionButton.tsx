@@ -1,49 +1,68 @@
-import React from "react";
-import { Trial } from "../hooks/useTrials";
-import { Button, ButtonProps } from "@chakra-ui/react";
+// src/components/AddCollectionButton.tsx
+
+import React, { useState } from "react";
+import { Button, Select, Input, VStack } from "@chakra-ui/react";
+import { CollectionType } from "../types/collectionTypes";
+import { Trial } from "../types/trialTypes";
 
 interface Props {
   trial: Trial;
-  onAddTrialToCollection: (selectedTrial: string) => void;
-  onRemoveTrialFromCollection: (selectedTrial: string) => void;
-  isInCollection: (trialId: string) => boolean;
-  buttonProps?: ButtonProps; // Optional button props
+  collections: CollectionType[];
+  onAddTrialToCollection: (trialId: string, collectionName: string) => void;
+  onCreateCollection: (name: string) => void;
 }
 
-const AddCollectionButton = ({
+export const AddCollectionButton: React.FC<Props> = ({
   trial,
+  collections,
   onAddTrialToCollection,
-  onRemoveTrialFromCollection,
-  isInCollection,
-  buttonProps, // Include buttonProps in the destructuring
-}: Props) => {
-  const addToCollection = () => onAddTrialToCollection(trial.id);
-  const removeFromCollection = () => onRemoveTrialFromCollection(trial.id);
+  onCreateCollection,
+}) => {
+  const [selectedCollection, setSelectedCollection] = useState("");
+  const [newCollectionName, setNewCollectionName] = useState("");
+
+  const handleAddToCollection = () => {
+    const newCollection = newCollectionName.trim();
+    if (newCollection) {
+      // User wants to create a new collection
+      onCreateCollection(newCollection);
+      onAddTrialToCollection(trial.id, newCollection);
+      setNewCollectionName("");
+      setSelectedCollection("");
+    } else if (selectedCollection) {
+      // User wants to add to an existing collection
+      onAddTrialToCollection(trial.id, selectedCollection);
+      setSelectedCollection("");
+    } else {
+      // No collection selected or entered
+      alert("Please select or enter a collection name.");
+    }
+  };
 
   return (
-    <>
-      {isInCollection(trial.id) ? (
-        <Button
-          colorScheme="red"
-          onClick={removeFromCollection}
-          wordBreak={"break-word"}
-          whiteSpace={"normal"}
-          {...buttonProps} // Spread additional button properties
-        >
-          Remove from Collection
-        </Button>
-      ) : (
-        <Button
-          colorScheme="teal"
-          whiteSpace={"normal"}
-          wordBreak={"break-word"}
-          onClick={addToCollection}
-          {...buttonProps} // Spread additional button properties
-        >
-          Add to Collection
-        </Button>
-      )}
-    </>
+    <VStack spacing={2} align="stretch">
+      <Select
+        placeholder="Select Collection"
+        value={selectedCollection}
+        onChange={(e) => setSelectedCollection(e.target.value)}
+        isDisabled={newCollectionName.trim().length > 0}
+      >
+        {collections.map((collection) => (
+          <option key={collection.name} value={collection.name}>
+            {collection.name}
+          </option>
+        ))}
+      </Select>
+      <Input
+        placeholder="Or create new collection"
+        value={newCollectionName}
+        onChange={(e) => setNewCollectionName(e.target.value)}
+        isDisabled={selectedCollection.length > 0}
+      />
+      <Button onClick={handleAddToCollection} colorScheme="blue">
+        Add to Collection
+      </Button>
+    </VStack>
   );
 };
 

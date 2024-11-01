@@ -1,8 +1,9 @@
-from flask import Blueprint, jsonify, request, current_app
+# Routes.py
+
+from flask import Flask, Blueprint, jsonify, request, make_response
 from werkzeug.utils import secure_filename
 import os
 from SPARQLWrapper import JSON, SPARQLWrapper, POST
-from flask import make_response
 import uuid
 import requests
 from flask_cors import CORS
@@ -11,8 +12,12 @@ import pycountry
 UPLOAD_FOLDER = './uploads'
 ALLOWED_EXTENSIONS = {'pdf'}
 
+# Initialize Flask app
+app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
+
 main = Blueprint('main', __name__)
-CORS(main) 
+# CORS(main)  # Not needed as CORS is already enabled globally
 
 @main.route('/search', methods=['GET'])
 def search():
@@ -24,6 +29,7 @@ def search():
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 @main.route('/upload', methods=['POST'])
 def upload_file():
@@ -59,6 +65,7 @@ def clean_trial(trial):
         cleaned_trial[clean_key] = value
     
     return cleaned_trial
+
 
 @main.route('/download_knowledge_graph_data', methods=['GET'])
 def download_knowledge_graph_data():
@@ -110,6 +117,7 @@ def download_knowledge_graph_data():
     response = make_response(results)
     response.headers['Content-Type'] = 'text/turtle'
     return response
+
 
 @main.route('/knowledge_graph_data', methods=['GET'])
 def fetch_knowledge_graph_data():    
@@ -197,13 +205,6 @@ def fetch_knowledge_graph_data():
     return response
 
 
-def clean_trial(trial):
-    # Your cleaning logic here
-    return trial
-
-
-from uuid import uuid4
-
 @main.route('/add_knowledge_graph_entry', methods=['POST'])
 def add_knowledge_graph_entry():
     data = request.get_json()
@@ -218,8 +219,8 @@ def add_knowledge_graph_entry():
     evaluation_design = data.get('Evaluation_design', '')
 
     # Generate a unique identifier for the new trial
-    uuid = uuid4()
-    trial_uri = f"urn:uuid:{uuid}"
+    uuid_val = uuid.uuid4()
+    trial_uri = f"urn:uuid:{uuid_val}"
 
     # SPARQL query prefixes
     prefixes = """
@@ -256,11 +257,10 @@ def add_knowledge_graph_entry():
     try:
         response = requests.post(sparql_endpoint, data=query, headers=headers)
         response.raise_for_status()  # Ensure we raise an error for bad responses
-        return jsonify({'message': 'Entry added successfully', 'uuid': str(uuid)})
+        return jsonify({'message': 'Entry added successfully', 'uuid': str(uuid_val)})
     except requests.HTTPError as err:
         return jsonify({'error': 'Failed to execute query', 'details': str(err)}), 500
-    
-    
+
 
 @main.route('/knowledge_graph_trial', methods=['GET'])
 def fetch_specific_knowledge_graph_trial():
@@ -360,21 +360,6 @@ def fetch_categories():
             category = {"name": country.name}
             categories.append(category)
 
-    # if category == 'Country':
-    #     categories = []
-    #     for result in results["results"]:  # Step 2: The venture through each element
-    #         category_name = result["value"]["value"]  # Step 3: Extracting the essence
-    #         categories.append({"name": category_name})  # Step 4: Append to the cauldron
-
-        # categories = []
-        # for result in results["results"]:
-        #     country = pycountry.countries.get(alpha_2=result["value"]["value"])
-        #     if country == None:
-        #         continue
-        #     category = {"name": country.name}
-        #     categories.append(category)
-
-    #categories = [{"name": pycountry.countries.get(alpha_2=result["value"]["value"].upper()).name} for result in results["results"]["bindings"]]
     # Wrap the results in a response object
     response_data = {
         "count": len(categories),
@@ -387,5 +372,6 @@ def fetch_categories():
     
     return response
 
+
 if __name__ == '__main__':
-    main.run(debug=True, port=5000)
+    app.run(debug=True, port=5000)

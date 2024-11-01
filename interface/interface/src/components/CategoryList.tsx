@@ -1,13 +1,4 @@
-import {
-  Box,
-  Button,
-  HStack,
-  List,
-  ListItem,
-  Spinner,
-  Text,
-  VStack,
-} from "@chakra-ui/react";
+import { Box, List, ListItem, Spinner, Text, VStack } from "@chakra-ui/react";
 import React from "react";
 import useCategories, { Category } from "../hooks/useCategories";
 
@@ -17,15 +8,14 @@ interface Props {
   categoryTypeToFetch?: string;
 }
 
-const CategoryList = ({
+const CategoryList: React.FC<Props> = ({
   onSelectCategory,
   selectedCategory,
   categoryTypeToFetch,
-}: Props) => {
+}) => {
   const { data, isLoading, error } = useCategories(categoryTypeToFetch);
 
   const handleCategoryClick = (category: Category) => {
-    // Check if the clicked category is the same as the selected one
     if (selectedCategory === category.name) {
       onSelectCategory(null);
     } else {
@@ -33,8 +23,14 @@ const CategoryList = ({
     }
   };
 
-  if (error) return <Text>There was an error loading the categories.</Text>;
+  if (error) {
+    console.error(error);
+    return <Text>There was an error loading the categories.</Text>;
+  }
+
   if (isLoading) return <Spinner />;
+
+  if (!data) return null;
 
   return (
     <VStack align="stretch" spacing={2}>
@@ -43,6 +39,8 @@ const CategoryList = ({
           <ListItem key={category.name} py="5px">
             <Box
               as="button"
+              role="button"
+              aria-pressed={selectedCategory === category.name}
               onClick={() => handleCategoryClick(category)}
               justifyContent="start"
               width="full"
@@ -57,7 +55,7 @@ const CategoryList = ({
               color={
                 selectedCategory === category.name ? "blue.700" : "inherit"
               }
-              borderRadius="lg" // Adjusted for more rounded edges
+              borderRadius="lg"
             >
               {category.name}
             </Box>
